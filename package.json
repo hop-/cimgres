@@ -1,0 +1,48 @@
+{
+  "name": "cimgres",
+  "version": "1.0.0",
+  "description": "An package to easily resize images",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "prebuild:addon": "rm -rf build && node-gyp configure",
+    "build:addon": "node-gyp rebuild && mv build/Release/cimgres.node build/cimgres.node",
+    "clean:addon": "rm -rf build",
+    "build:lib": "tsc",
+    "clean:lib": "rm -rf lib",
+    "build": "npm run prebuild:addon && npm run build:addon && npm run build:lib",
+    "clean": "npm run clean:addon && npm run clean:lib",
+    "prepublish": "npm run clean && npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hop-/cimgres.git"
+  },
+  "keywords": [
+    "image",
+    "image-resize",
+    "png",
+    "png-resize",
+    "jpg",
+    "jpeg",
+    "jpeg-resize",
+    "webp",
+    "webp-resize",
+    "c"
+  ],
+  "author": "hop-",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/hop-/cimgres/issues"
+  },
+  "homepage": "https://github.com/hop-/cimgres#readme",
+  "dependencies": {
+    "node-addon-api": "^8.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.14",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2"
+  }
+}

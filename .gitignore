@@ -1,0 +1,25 @@
+# Node artifact files
+node_modules/
+build/
+dist/
+lib/
+
+# JetBrains IDE
+.idea/
+
+# Project specific files
+*.json
+!config/*.json
+!package.json
+!package-lock.json
+!pm2.*.config.json
+!tsconfig.json
+!.eslintrc.json
+!.mocharc.json
+!tsoa.json
+
+src/routes/*.ts
+
+*certs/
+
+.env
