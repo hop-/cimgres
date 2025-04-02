@@ -1,7 +1,7 @@
 {
   "name": "cimgres",
   "version": "1.0.0",
-  "description": "An package to easily resize images",
+  "description": "High-performance C++ Node.js addon for fast and efficient image resizing",
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
@@ -42,7 +42,6 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.14",
-    "ts-node": "^10.9.2",
     "typescript": "^5.8.2"
   }
 }
