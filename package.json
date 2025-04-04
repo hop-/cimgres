@@ -2,11 +2,11 @@
   "name": "cimgres",
   "version": "1.0.0",
   "description": "High-performance C++ Node.js addon for fast and efficient image resizing",
-  "type": "module",
   "main": "src/index.ts",
   "scripts": {
     "prebuild:addon": "rm -rf build && node-gyp configure",
-    "build:addon": "node-gyp rebuild && mv build/Release/cimgres.node build/cimgres.node",
+    "build:addon": "node-gyp rebuild && cp build/Release/cimgres.node build/cimgres.node",
+    "build:addon:debug": "node-gyp build --debug && cp build/Debug/cimgres.node build/cimgres.node",
     "clean:addon": "rm -rf build",
     "build:lib": "tsc",
     "clean:lib": "rm -rf lib",
