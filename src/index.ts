@@ -2,7 +2,8 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 
 interface ICimgres {
-  resize(img: Buffer, width: number, height: number): Buffer;
+  resizeSync(img: Buffer, width: number, height: number): Buffer;
+  resize(img: Buffer, width: number, height: number): Promise<Buffer>;
 }
 
 const bindingPath = join(__dirname, '..', 'build', 'cimgres.node');
