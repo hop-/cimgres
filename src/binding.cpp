@@ -3,6 +3,14 @@
 #include <glib.h>
 #include <string>
 
+enum class OptionType
+{
+  NONE,
+  RESIZE,
+  SCALE,
+  SCALE_PERCENT,
+};
+
 std::string detectFormat(const void *buf, const size_t &len)
 {
   const char *loader = vips_foreign_find_load_buffer(buf, len);
@@ -43,16 +51,17 @@ std::string detectFormat(const void *buf, const size_t &len)
 void resizeImage(
     const uint8_t *data, const size_t &dataLength,
     uint8_t **resizedData, size_t *resizedDataLength,
-    const int &width, int height,
+    const int &width, const int &height,
     const char *outFormat = nullptr)
 {
   const auto image = vips::VImage::new_from_buffer(data, dataLength, "");
 
   const auto scale = static_cast<double>(width) / image.width();
+  // TODO: use height as well
   const auto resizedImage = image.resize(scale);
 
   std::string format;
-  if (outFormat)
+  if (outFormat != nullptr && outFormat[0] != '\0')
   {
     format = outFormat;
   }
@@ -71,6 +80,127 @@ void resizeImage(
       resizedDataLength);
 }
 
+void scaleImage(
+    const uint8_t *data, const size_t &dataLength,
+    uint8_t **resizedData, size_t *resizedDataLength,
+    const double &scale,
+    const char *outFormat = nullptr)
+{
+  const auto image = vips::VImage::new_from_buffer(data, dataLength, "");
+
+  const auto resizedImage = image.resize(scale);
+
+  std::string format;
+  if (outFormat != nullptr && outFormat[0] != '\0')
+  {
+    format = outFormat;
+  }
+  else
+  {
+    format = detectFormat(data, dataLength);
+    if (format.empty())
+    {
+      throw vips::VError("Unsupported image format");
+    }
+  }
+
+  resizedImage.write_to_buffer(
+      format.c_str(),
+      reinterpret_cast<void **>(resizedData),
+      resizedDataLength);
+}
+
+void resize(
+    const OptionType &optionType,
+    const uint8_t *data, const size_t &dataLength,
+    uint8_t **resizedData, size_t *resizedDataLength,
+    const int &width, const int &height,
+    const double &scale,
+    const int &percent,
+    const std::string &format)
+{
+  switch (optionType)
+  {
+  case OptionType::RESIZE:
+    resizeImage(
+        data, dataLength,
+        resizedData, resizedDataLength,
+        width, height,
+        format.c_str());
+    break;
+  case OptionType::SCALE:
+    scaleImage(
+        data, dataLength,
+        resizedData, resizedDataLength,
+        scale,
+        format.c_str());
+    break;
+  case OptionType::SCALE_PERCENT:
+    scaleImage(
+        data, dataLength,
+        resizedData, resizedDataLength,
+        static_cast<double>(percent) / 100.0,
+        format.c_str());
+    break;
+  default:
+    break;
+  }
+}
+
+bool parseArgs(
+    const Napi::CallbackInfo &info,
+    OptionType &optionType,
+    Napi::Buffer<uint8_t> &buffer,
+    int &width, int &height,
+    double &scale,
+    int &percent,
+    std::string &format)
+{
+  if (info.Length() < 2 || !info[0].IsBuffer() || !info[1].IsObject())
+  {
+    return false;
+  }
+
+  // Get the buffer
+  buffer = info[0].As<Napi::Buffer<uint8_t>>();
+
+  // Get the options
+  Napi::Object options = info[1].As<Napi::Object>();
+
+  // Check of options type
+  if (options.Has("width") && options.Get("width").IsNumber() && options.Has("height") && options.Get("height").IsNumber())
+  {
+    // Resize
+    optionType = OptionType::RESIZE;
+    width = options.Get("width").As<Napi::Number>().Int32Value();
+    height = options.Get("height").As<Napi::Number>().Int32Value();
+  }
+  else if (options.Has("scale") && options.Get("scale").IsNumber())
+  {
+    // Scale
+    optionType = OptionType::SCALE;
+    scale = options.Get("scale").As<Napi::Number>().DoubleValue();
+  }
+  else if (options.Has("percent") && options.Get("percent").IsNumber())
+  {
+    // Scale percent
+    optionType = OptionType::SCALE_PERCENT;
+    percent = options.Get("percent").As<Napi::Number>().Int32Value();
+  }
+  else
+  {
+    return false;
+  }
+
+  if (options.Has("format") && options.Get("format").IsString())
+  {
+    // Format optional parameter
+    format = options.Get("format").As<Napi::String>().Utf8Value();
+  }
+
+  return true;
+}
+
 // Async worker class
 class ResizeWorker : public Napi::AsyncWorker
 {
@@ -79,19 +209,35 @@ private:
   const size_t dataLength;
   uint8_t *resizedData;
   size_t resizedDataLength;
+  const OptionType optionType;
   const int width;
   const int height;
+  const double scale;
+  const int percent;
+  const std::string format;
   Napi::Promise::Deferred promiseDeferred;
 
 public:
-  ResizeWorker(Napi::Env &env, Napi::Buffer<uint8_t> &buffer, int &width, int &height, Napi::Promise::Deferred &promiseDeferred)
+  ResizeWorker(
+      Napi::Env &env,
+      OptionType &OptionType,
+      Napi::Buffer<uint8_t> &buffer,
+      int &width, int &height,
+      double &scale,
+      int &percent,
+      std::string &format,
+      Napi::Promise::Deferred &promiseDeferred)
       : Napi::AsyncWorker(env),
         data(buffer.Data()),
         dataLength(buffer.Length()),
         resizedData(nullptr),
         resizedDataLength(0),
+        optionType(OptionType),
         width(width),
         height(height),
+        scale(scale),
+        percent(percent),
+        format(format),
         promiseDeferred(promiseDeferred)
   {
   }
@@ -110,10 +256,13 @@ public:
   {
     try
     {
-      resizeImage(
+      resize(
+          optionType,
           data, dataLength,
           &resizedData, &resizedDataLength,
-          width, height);
+          width, height,
+          scale, percent,
+          format);
     }
     catch (const vips::VError &e)
     {
@@ -145,21 +294,15 @@ Napi::Value resizeSync(const Napi::CallbackInfo &info)
 {
   Napi::Env env = info.Env();
 
-  if (info.Length() < 3 || !info[0].IsBuffer() || !info[1].IsNumber() || !info[2].IsNumber())
+  Napi::Buffer<uint8_t> buffer;
+  OptionType optionType = OptionType::NONE;
+  int width, height, percent;
+  double scale;
+  std::string format;
+
+  if (!parseArgs(info, optionType, buffer, width, height, scale, percent, format))
   {
-    Napi::TypeError::New(env, "Expected (imageBuffer: Buffer, width: number, height: number)")
-        .ThrowAsJavaScriptException();
-
-    return env.Null();
-  }
-
-  Napi::Buffer<uint8_t> buffer = info[0].As<Napi::Buffer<uint8_t>>();
-  int width = info[1].As<Napi::Number>().Int32Value();
-  int height = info[2].As<Napi::Number>().Int32Value();
-
-  if (width <= 0 || height <= 0)
-  {
-    Napi::TypeError::New(env, "Width and height must be positive numbers")
+    Napi::TypeError::New(env, "Expected (img: Buffer, options: IOptions)")
         .ThrowAsJavaScriptException();
 
     return env.Null();
@@ -171,10 +314,13 @@ Napi::Value resizeSync(const Napi::CallbackInfo &info)
 
   try
   {
-    resizeImage(
+    resize(
+        optionType,
         buffer.Data(), buffer.Length(),
         &resizedImageBuffer, &resizedImageBufferLength,
-        width, height);
+        width, height,
+        scale, percent,
+        format);
 
     out = Napi::Buffer<uint8_t>::Copy(
         env,
@@ -194,29 +340,22 @@ Napi::Value resizeAsync(const Napi::CallbackInfo &info)
 {
   Napi::Env env = info.Env();
 
-  if (info.Length() < 3 ||
-      !info[0].IsBuffer() ||
-      !info[1].IsNumber() ||
-      !info[2].IsNumber())
-  {
-    Napi::TypeError::New(env, "Expected (Buffer, width, height)").ThrowAsJavaScriptException();
-    return env.Null();
-  }
+  Napi::Buffer<uint8_t> buffer;
+  OptionType optionType = OptionType::NONE;
+  int width, height, percent;
+  double scale;
+  std::string format;
 
-  Napi::Buffer<uint8_t> inputBuffer = info[0].As<Napi::Buffer<uint8_t>>();
-
-  int width = info[1].As<Napi::Number>().Int32Value();
-  int height = info[2].As<Napi::Number>().Int32Value();
-  if (width <= 0 || height <= 0)
+  if (!parseArgs(info, optionType, buffer, width, height, scale, percent, format))
   {
-    Napi::TypeError::New(env, "Width and height must be positive numbers")
+    Napi::TypeError::New(env, "Expected (img: Buffer, options: IOptions)")
         .ThrowAsJavaScriptException();
 
     return env.Null();
   }
 
   Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
-  ResizeWorker *worker = new ResizeWorker(env, inputBuffer, width, height, deferred);
+  ResizeWorker *worker = new ResizeWorker(env, optionType, buffer, width, height, scale, percent, format, deferred);
   worker->Queue();
 
   return deferred.Promise();

@@ -1,9 +1,32 @@
 import { join } from 'path';
 import { existsSync } from 'fs';
 
+interface IScaleOptions {
+  scale: number;
+}
+
+interface IScalePercentOptions {
+  percent: number;
+}
+
+interface ISizeOptions {
+  width: number;
+  height: number;
+}
+
+export type ImageFormat = '.jpg' | '.png' | '.webp' | '.tiff' | '.gif' | '.bmp' | '.svg' | '.pdf'
+
+export interface IFormatOptions {
+  format?: ImageFormat;
+}
+
+export type IResizeOptions =  IScaleOptions | ISizeOptions | IScalePercentOptions;
+
+export type IOptions = IResizeOptions & IFormatOptions;
+
 interface ICimgres {
-  resizeSync(img: Buffer, width: number, height: number): Buffer;
-  resize(img: Buffer, width: number, height: number): Promise<Buffer>;
+  resize(img: Buffer, options: IOptions ): Promise<Buffer>;
+  resizeSync(img: Buffer, options: IOptions): Buffer;
 }
 
 const bindingPath = join(__dirname, '..', 'build', 'cimgres.node');
