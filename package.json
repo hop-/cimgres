@@ -1,17 +1,19 @@
 {
   "name": "cimgres",
-  "version": "1.0.0",
+  "version": "0.0.3",
   "description": "High-performance C++ Node.js addon for fast and efficient image resizing",
-  "main": "src/index.ts",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "gypfile": true,
   "scripts": {
-    "prebuild:addon": "rm -rf build && node-gyp configure",
-    "build:addon": "node-gyp rebuild && cp build/Release/cimgres.node build/cimgres.node",
-    "build:addon:debug": "node-gyp build --debug && cp build/Debug/cimgres.node build/cimgres.node",
-    "clean:addon": "rm -rf build",
+    "build:addon": "prebuildify --napi --stripe",
+    "build:all:addon": "prebuildify --napi --stripe --all",
+    "clean:addon": "rm -rf build prebuilds",
     "build:lib": "tsc",
     "clean:lib": "rm -rf lib",
-    "build": "npm run prebuild:addon && npm run build:addon && npm run build:lib",
+    "build": "npm run build:addon && npm run build:lib",
     "clean": "npm run clean:addon && npm run clean:lib",
+    "install": "node-gyp-build",
     "prepublish": "npm run clean && npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -22,6 +24,8 @@
   "keywords": [
     "image",
     "image-resize",
+    "image-scale",
+    "thumbnail",
     "png",
     "png-resize",
     "jpg",
@@ -29,6 +33,10 @@
     "jpeg-resize",
     "webp",
     "webp-resize",
+    "node-addon",
+    "napi",
+    "addon",
+    "c++",
     "c"
   ],
   "author": "hop-",
@@ -38,7 +46,9 @@
   },
   "homepage": "https://github.com/hop-/cimgres#readme",
   "dependencies": {
-    "node-addon-api": "^8.3.1"
+    "node-addon-api": "^8.3.1",
+    "node-gyp-build": "^4.8.4",
+    "prebuildify": "^6.0.1"
   },
   "devDependencies": {
     "@types/node": "^22.13.14",
