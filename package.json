@@ -5,9 +5,20 @@
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "gypfile": true,
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "build:addon": "prebuildify --napi --stripe",
-    "build:all:addon": "prebuildify --napi --stripe --all",
     "clean:addon": "rm -rf build prebuilds",
     "build:lib": "tsc",
     "clean:lib": "rm -rf lib",
